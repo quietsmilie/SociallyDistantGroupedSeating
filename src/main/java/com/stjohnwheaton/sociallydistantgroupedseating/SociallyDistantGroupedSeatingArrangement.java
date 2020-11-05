@@ -4,83 +4,302 @@
  * and open the template in the editor.
  */
 package com.stjohnwheaton.sociallydistantgroupedseating;
-import java.lang.reflect.Array;
+
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.function.Predicate;
 
 /**
  *
  * @author Emilie Yonkers
  */
-public class SociallyDistantGroupedSeatingArrangement {
- 
-    
+public class SociallyDistantGroupedSeatingArrangement
+{
+
     private SeatingGroups groupsToSeat;
-    private ArrayList<SeatingRow> rowsAvailable;
+    private SeatingRows rowsAvailable;
+    private SeatingGroups seatedGroups;
+    private SeatingRows rowsOccupied;
+    private SeatingRows rowsEmpty;
+    private String groupSortKeyValue;
+    private String rowSortKeyValue;
 
-  public SociallyDistantGroupedSeatingArrangement()
-{
-    groupsToSeat = new SeatingGroups();
-    rowsAvailable = new ArrayList<>();
-}  
-  public SeatingGroups AddSeatingGroup(SeatingGroup sg)
-  {
-      groupsToSeat.add(sg);
-      return groupsToSeat;
-  }
-
-  public ArrayList<SeatingRow> AddSeatingRow(SeatingRow sr)
-  {
-      rowsAvailable.add(sr);
-      return rowsAvailable;
-  }
-  
-  private Array<int> expandCounts(Arra counts)
-  {
-//    """
-//    Helper function to convert family size to an array with a length equal to
-//    the number of seats they take up.
-//    """
-    Array expanded = new Array(counts.size());
-    for (int i=0;i<counts.size();i++){
-        expanded[i].ensureCapacity(size * counts[i]);
+    public SociallyDistantGroupedSeatingArrangement()
+    {
+        groupsToSeat = new SeatingGroups();
+        rowsAvailable = new SeatingRows();
+        seatedGroups = new SeatingGroups();
+        rowsOccupied = new SeatingRows();
+        rowsEmpty = new SeatingRows();
     }
-    return expanded;
 
-   }
-  
-private ArrayList<int> getPews()
-{
+    public SociallyDistantGroupedSeatingArrangement(SeatingGroups seatingGroups, SeatingRows seatingRows)
+    {
+        groupsToSeat = seatingGroups;
+        rowsAvailable = seatingRows;
+        seatedGroups = new SeatingGroups();
+        rowsOccupied = new SeatingRows();
+        rowsEmpty = seatingRows;
+    }
+
+    public SociallyDistantGroupedSeatingArrangement setSeating(SeatingGroups alreadySeatedGroups, SeatingRows rowsAlreadyOccupied, SeatingRows rowsStillEmpty)
+    {
+        seatedGroups = alreadySeatedGroups;
+        rowsOccupied = rowsAlreadyOccupied;
+        rowsEmpty = rowsStillEmpty;
+
+        return this;
+    }
+
+    public boolean addSeatingGroup(SeatingGroup group)
+    {
+        return groupsToSeat.add(group);
+    }
+
+    public ArrayList<SeatingGroup> getAllSeatingGroups()
+    {
+        ArrayList<SeatingGroup> returnValue = new ArrayList();
+        groupsToSeat.forEach((group) -> returnValue.add((SeatingGroup) group));
+        seatedGroups.forEach((group) -> returnValue.add((SeatingGroup) group));
+        return returnValue;
+    }
+
+    public ArrayList<SeatingRow> getAllSeatingRows()
+    {
+        ArrayList<SeatingRow> returnValue = new ArrayList();
+        rowsAvailable.forEach((row) -> returnValue.add((SeatingRow) row));
+        return returnValue;
+    }
+
+    public ArrayList<SeatingGroup> getSeatedGroups()
+    {
+        ArrayList<SeatingGroup> returnValue = new ArrayList();
+        seatedGroups.forEach((group) -> returnValue.add((SeatingGroup) group));
+        return returnValue;
+    }
+
+    public ArrayList<SeatingGroup> getUnSeatedGroups()
+    {
+        ArrayList<SeatingGroup> returnValue = new ArrayList();
+        groupsToSeat.forEach((group) -> returnValue.add((SeatingGroup) group));
+        return returnValue;
+    }
+
+    public boolean addSeatingRow(SeatingRow row)
+    {
+        return rowsAvailable.add(row);
+    }
+
+    public void seatAllGroups()
+    {
 //    """
-//    Returns the optimal seating group sizes for each pew, as well as any
-//    family sizes that aren't able to be seated (must go into overflow)
+//    Returns the optimal seating group sizes for each row, as well as any
+//    groups that aren't able to be seated (must go into overflow)
 //    """
-    Array familyCounts;
-        familyCounts = groupsToSeat.getGroupSizes();
+        // first, order the rows by DistanceFromFront
+        rowsAvailable.sortByDistanceFromFront();
+        boolean groupSeated = seatGroups();
+        // check if any groups still need to be seated, 
+        //if so, try swapping groups among rows with available seats
+        ArrayList<SeatingRow> rowsWithSeats = rowsAvailable.getRowsWithLeftoverSeats();
+        while (groupSeated && groupsToSeat.size() > 0 && rowsWithSeats.size() > 0)
+        {
+            groupSeated = false;
+            rowsWithSeats = rowsAvailable.getRowsWithLeftoverSeats();
+            //rowsWithSeats.addAll(rowsEmpty);
+            if (rowsWithSeats.size() > 1)
+            {
+                if (swapGroups(rowsWithSeats))
+                {
+                    groupSeated = true;
+                    seatGroups();                    
+                }
+            }
+            
+        }
+        //return groupSeated;
+    }
 
-    ArrayList matched_pews = new ArrayList();
-    ArrayList unmatched_pews = new ArrayList();
-    
-    for pew_idx, pew in enumerate(pews):
-        pew += margin # Extend pew artificially
+    private boolean seatGroups()
+    {
+        boolean groupSeated = false;
+        SeatingRow currentRow;
+        SeatingGroups possibleGroups;
 
-        expanded = expand_counts(family_counts) + margin # Add margin to each family size
+        // Creating predicate
+        for (Iterator<SeatingRow> it = rowsAvailable.iterator(); it.hasNext();)
+        {
+            currentRow = it.next();
+            if (groupsToSeat.size() > 0)
+            {
+                do
+                {
+                    possibleGroups = groupsToSeat.getCopyForSubsets();
+                    int availableSeats = currentRow.availableSeats();
+                    Predicate<SeatingGroup> greaterThan = i -> (i.getGroupSize() > availableSeats);
 
-        if len(expanded) == 0:
-            break # No more families to find a subset of!
+                        possibleGroups.removeIf(greaterThan);
 
-        subset = subset_sum(expanded, pew, mode='<=')
+                    if (possibleGroups.size() > 0)
+                    {
+                        SeatingGroup currentGroup;
+                        currentGroup = possibleGroups.getGroups().get(0);
+                        //Iterator<SeatingGroup> it2 = possibleGroups.iterator();
+                        //while (it2.hasNext() && currentRow.availableSeats()>0) {
+                        //currentGroup = it2.next();
+                        if (currentRow.availableSeats() >= currentGroup.getGroupSize())
+                        {
+                            currentRow.seatGroup(currentGroup);
+                            if (!seatedGroups.contains(currentGroup))
+                            {
+                                seatedGroups.add(currentGroup);
+                            }
+                            groupsToSeat.remove(currentGroup);
+                            groupSeated = true;
+                        }
 
-        if not subset:
-            unmatched_pews.append(pew_idx)
-            continue
+                    }
+                    //}
+                } while (possibleGroups.size() > 0 && currentRow.availableSeats() > 0);
+                if (!rowsOccupied.contains(currentRow))
+                {
+                    rowsOccupied.add(currentRow);
+                }
 
-        subset = np.array(subset) - margin # Revert to original family sizes
+            }
 
-        for fam in subset:
-            family_counts[fam] -= 1
+        }
+        return groupSeated;
+    }
 
-        matched_pews.append((pew_idx, list(subset)))
+    private boolean swapGroups(ArrayList<SeatingRow> rowsToSwap)
+    {
+        //Performs best swap possible between all rows
+        //until no more best swaps can be performed. 
+        //Swaps are done in-place.
+        boolean swap = false;
+        boolean anySwap = false;
+        SeatingRow currentRow;
+        SeatingRow swapRow;
+        do
+        {
+            for (int i = 0; i < rowsToSwap.size(); i++)
+            {
+                currentRow = rowsToSwap.get(i);
 
+                for (int j = i + 1; j < rowsToSwap.size(); j++)
+                {
+                    swapRow = rowsToSwap.get(j);
+                    swap = bestSwap(currentRow, swapRow);
+                    if (swap == true)
+                    {
+                        anySwap = true;
+                    }
+                }
+            }
+        } while (swap);
+        return anySwap;
+    }
+
+    private boolean bestSwap(SeatingRow rowA, SeatingRow rowB)
+    {
+        // Finds the best swap between rows a and b 
+        // which will increase the gradient between their leftover values.
+        // Performs the swap and returns Truw, if found
+        // If no such swap exists, returns false
+
+        int leftoverSeatsA = rowA.leftoverSeats();
+        int leftoverSeatsB = rowB.leftoverSeats();
+
+        int currentDifference = Math.abs(leftoverSeatsB - leftoverSeatsA);
+        int maxDifference = currentDifference;
+        int swapDifference = 0;
+
+        SeatingGroup[] bestPair = new SeatingGroup[2];
+        //max_pair = (None, None)
+
+//    # No swap if one of the leftovers is 0
+//    if leftover_a == 0 or leftover_b == 0:
+//        return max_pair
+        if (leftoverSeatsA > 0 && leftoverSeatsB > 0)
+        {
+            ArrayList<SeatingGroup> groupsA = rowA.getGroups();
+            SeatingGroup currentGroupA;
+            ArrayList<SeatingGroup> groupsB = rowB.getGroups();
+            SeatingGroup currentGroupB;
+            for (Iterator<SeatingGroup> itA = groupsA.iterator(); itA.hasNext();)
+            {
+                currentGroupA = itA.next();
+//            for fa in families_a
+//                    for fb in families_b
+                for (Iterator<SeatingGroup> itB = groupsB.iterator(); itB.hasNext();)
+                {
+                    currentGroupB = itB.next();
+                    swapDifference = currentGroupA.getGroupSize() - currentGroupB.getGroupSize();
+//                            How much the leftover will change
+//                              for pew a if we swap fa and fb
+//                            Skip invalid swaps where the
+//                              leftover would be negative
+//                                impossible on either row.
+                    if (leftoverSeatsA + swapDifference > 0 && leftoverSeatsB - swapDifference > 0)
+                    {
+//            The difference between the two leftovers IF the swap were to take place:
+                        currentDifference = Math.abs((leftoverSeatsA + swapDifference) - (leftoverSeatsB - swapDifference));
+//            Compare with best swap, replace if better.
+                        if (currentDifference > maxDifference)
+                        {
+                            maxDifference = currentDifference;
+                            bestPair[0] = currentGroupA;
+                            bestPair[1] = currentGroupB;
+                        }
+                    }
+                }
+            }
+        }
+        if (bestPair[0] != null)
+        {
+            rowA.unSeatGroup(bestPair[0]);
+            rowB.unSeatGroup(bestPair[1]);
+            
+            rowA.seatGroup(bestPair[1]);
+            rowB.seatGroup(bestPair[0]);
+
+            return true;
+        }
+        return false;
+    }
+
+    public void setGroupSortKey(String sortKey)
+    {
+        groupSortKeyValue = sortKey;
+    }
+
+    public void setRowSortKey(String sortKey)
+    {
+        groupSortKeyValue = sortKey;
+    }
+
+    public Comparator<SeatingGroup> groupStringComparator = new Comparator<SeatingGroup>()
+    {
+        @Override
+        public int compare(SeatingGroup sg1, SeatingGroup sg2)
+        {
+            return (int) (sg1.getGroupInfo().get(groupSortKeyValue).toString().compareToIgnoreCase(sg2.getGroupInfo().get(groupSortKeyValue).toString()));
+        }
+    };
+
+    public Comparator<SeatingRow> rowStringComparator = new Comparator<SeatingRow>()
+    {
+        @Override
+        public int compare(SeatingRow sr1, SeatingRow sr2)
+        {
+            return (int) (sr1.getInfo().get(groupSortKeyValue).toString().compareToIgnoreCase(sr2.getInfo().get(groupSortKeyValue).toString()));
+        }
+    };
+
+};
+/*
     # Isolate all imperfect pews: pews that hypothetically could fit more people while still distancing
     imperfect_pews = list(filter(lambda p: pew_leftover(pews[p[0]], p[1], margin) != 0, matched_pews))
 
@@ -189,5 +408,4 @@ def best_swap(pew_size_a, families_a, pew_size_b, families_b, margin):
  
    
 
-
-}
+ */

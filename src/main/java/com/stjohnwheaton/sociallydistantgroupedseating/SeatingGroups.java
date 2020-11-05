@@ -16,13 +16,17 @@ import java.util.function.Predicate;
  *
  * @author emili
  */
-public class SeatingGroups implements Collection<SeatingGroup> {
+public class SeatingGroups implements Collection<SeatingGroup>, Cloneable {
         
     private ArrayList<SeatingGroup> seatingGroups;
     
     public SeatingGroups()
     {
         seatingGroups = new ArrayList();
+    }
+
+    SeatingGroups(ArrayList<SeatingGroup> groupsToSeat) {
+        seatingGroups = groupsToSeat;
     }
     
     @Override
@@ -42,7 +46,7 @@ public class SeatingGroups implements Collection<SeatingGroup> {
 
     @Override
     public boolean contains(Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return seatingGroups.contains(o);
     }
 
     @Override
@@ -73,7 +77,8 @@ public class SeatingGroups implements Collection<SeatingGroup> {
 
     @Override
     public boolean remove(Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return seatingGroups.remove(o);
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
@@ -83,12 +88,13 @@ public class SeatingGroups implements Collection<SeatingGroup> {
 
     @Override
     public boolean addAll(Collection c) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return seatingGroups.addAll(c);
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean removeAll(Collection c) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public boolean removeAll(Collection c) {        
+        return seatingGroups.removeAll(c);
     }
 
     @Override
@@ -106,5 +112,32 @@ public class SeatingGroups implements Collection<SeatingGroup> {
         Collection.super.forEach(action); //To change body of generated methods, choose Tools | Templates.
     }
     
+    public ArrayList<Integer> getGroupSizes(){
+        ArrayList<Integer> groupSizes = new ArrayList();
+        seatingGroups.forEach(p -> groupSizes.add(p.getGroupSize()));
+        return groupSizes;
+    }
+
+    public ArrayList<SeatingGroup> getGroups(){
+        return seatingGroups;
+    }    
     
-}
+    public SeatingGroups getCopyForSubsets()
+    {
+        SeatingGroups returnValue = getValuesOnlyCopy(seatingGroups);
+        
+        return returnValue;
+    }
+
+    public SeatingGroups getValuesOnlyCopy(final ArrayList<SeatingGroup> startingList)
+    {
+        SeatingGroups returnValue = new SeatingGroups();
+        ArrayList<SeatingGroup> newList = new ArrayList();
+        startingList.forEach((i) -> newList.add(i));
+        newList.forEach((i) -> returnValue.add(i));
+        return returnValue;
+    }
+
+
+//}
+  };  

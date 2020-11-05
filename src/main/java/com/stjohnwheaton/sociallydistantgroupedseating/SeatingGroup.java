@@ -11,9 +11,13 @@ import java.util.Hashtable;
  *
  * @author emili
  */
- public class SeatingGroup {
+ public class SeatingGroup  {
      private Hashtable groupInfo;
      private int groupSize;
+     
+     public SeatingGroup(){
+         set(0,new Hashtable());
+     }
      
      public SeatingGroup(int size, Hashtable info)
      {
@@ -32,4 +36,10 @@ import java.util.Hashtable;
     public int getGroupSize() {
         return groupSize;
     }
+    
+    public SeatingGroup copy()
+    {
+        return new SeatingGroup(groupSize,groupInfo);
+    }
+    
  };
