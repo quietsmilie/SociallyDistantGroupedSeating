@@ -47,7 +47,7 @@ public class SeatingRows implements Collection<SeatingRow> {
             
             for (int i=0; i<seatingRowSizes.length;i++)
             {   
-                seatingRowSizes[i]=seatingRows.get(i).availableSeats();
+                seatingRowSizes[i]=seatingRows.get(i).getTotalSeats();
             }
         }
         return seatingRowSizes;
@@ -149,12 +149,18 @@ public class SeatingRows implements Collection<SeatingRow> {
     
     public SeatingRows getCopyForSubsets()
     {
-        SeatingRows sr = new SeatingRows(socialDistanceSize);
-        seatingRows.forEach((i) -> sr.add(i.copy()));
-        return sr;
+        return getValuesOnlyCopy(seatingRows);
     }
     
-
+    public SeatingRows getValuesOnlyCopy(final ArrayList<SeatingRow> startingList)
+    {
+        SeatingRows returnValue = new SeatingRows(socialDistanceSize);
+        ArrayList<SeatingRow> newList = new ArrayList();
+        startingList.forEach((i) -> newList.add(i));
+        newList.forEach((i) -> returnValue.add(i));
+        return returnValue;
+    }
+    
     public void sortByDistanceFromFront()
     {
         Collections.sort(seatingRows,rowDistanceFronFrontComparator);

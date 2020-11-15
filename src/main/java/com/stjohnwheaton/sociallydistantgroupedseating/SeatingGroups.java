@@ -7,6 +7,8 @@ package com.stjohnwheaton.sociallydistantgroupedseating;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -137,7 +139,24 @@ public class SeatingGroups implements Collection<SeatingGroup>, Cloneable {
         newList.forEach((i) -> returnValue.add(i));
         return returnValue;
     }
+    
+      public void sortByGroupSize()
+    {
+        Collections.sort(seatingGroups,groupSizeComparator);
+    }
+      
+    public void sortDescending()
+    {
+        Collections.reverseOrder();
+    }
 
-
+    public Comparator<SeatingGroup> groupSizeComparator = new Comparator<SeatingGroup>()
+    {
+        @Override
+        public int compare(SeatingGroup sg1, SeatingGroup sg2)
+        {
+            return Integer.compare(sg1.getGroupSize(), sg2.getGroupSize());
+        }
+    };
 //}
   };  

@@ -40,7 +40,7 @@ public class SociallyDistantGroupedSeatingArrangement
         rowsAvailable = seatingRows;
         seatedGroups = new SeatingGroups();
         rowsOccupied = new SeatingRows();
-        rowsEmpty = seatingRows;
+        rowsEmpty = seatingRows.getCopyForSubsets();
     }
 
     public SociallyDistantGroupedSeatingArrangement setSeating(SeatingGroups alreadySeatedGroups, SeatingRows rowsAlreadyOccupied, SeatingRows rowsStillEmpty)
@@ -88,6 +88,7 @@ public class SociallyDistantGroupedSeatingArrangement
 
     public boolean addSeatingRow(SeatingRow row)
     {
+        rowsEmpty.add(row);
         return rowsAvailable.add(row);
     }
 
@@ -99,12 +100,38 @@ public class SociallyDistantGroupedSeatingArrangement
 //    """
         // first, order the rows by DistanceFromFront
         rowsAvailable.sortByDistanceFromFront();
+        
         boolean groupSeated = seatGroups();
+        int noGroupSeatedCount = 0;
         // check if any groups still need to be seated, 
         //if so, try swapping groups among rows with available seats
-        ArrayList<SeatingRow> rowsWithSeats = rowsAvailable.getRowsWithLeftoverSeats();
-        while (groupSeated && groupsToSeat.size() > 0 && rowsWithSeats.size() > 0)
+        while (groupSeated && groupsToSeat.size() > 0 && noGroupSeatedCount < 5)
         {
+            groupSeated = swapGroupsAndSeatRemaining();
+            if (groupSeated)
+            {
+                noGroupSeatedCount = 0;
+            }
+            else
+            {
+                noGroupSeatedCount ++;
+            }            
+        }
+        //return groupSeated;
+    }
+    
+    private boolean swapGroupsAndSeatRemaining()
+    {
+        
+        boolean groupSeated = true;
+        boolean groupSeated2 = groupSeated;
+        boolean anyGroupSeated = false;
+        
+        ArrayList<SeatingRow> rowsWithSeats = rowsAvailable.getRowsWithLeftoverSeats();
+        
+         while ((groupSeated || groupSeated2) && groupsToSeat.size() > 0 && rowsWithSeats.size() > 0)
+        {
+            groupSeated2 = groupSeated;
             groupSeated = false;
             rowsWithSeats = rowsAvailable.getRowsWithLeftoverSeats();
             //rowsWithSeats.addAll(rowsEmpty);
@@ -112,13 +139,14 @@ public class SociallyDistantGroupedSeatingArrangement
             {
                 if (swapGroups(rowsWithSeats))
                 {
+                    anyGroupSeated = true;
                     groupSeated = true;
                     seatGroups();                    
                 }
             }
             
         }
-        //return groupSeated;
+        return anyGroupSeated;   
     }
 
     private boolean seatGroups()
@@ -126,9 +154,9 @@ public class SociallyDistantGroupedSeatingArrangement
         boolean groupSeated = false;
         SeatingRow currentRow;
         SeatingGroups possibleGroups;
-
+        ArrayList<SeatingRow> rowsWithSeats = rowsAvailable.getRowsWithLeftoverSeats();
         // Creating predicate
-        for (Iterator<SeatingRow> it = rowsAvailable.iterator(); it.hasNext();)
+        for (Iterator<SeatingRow> it = rowsWithSeats.iterator(); it.hasNext();)
         {
             currentRow = it.next();
             if (groupsToSeat.size() > 0)
@@ -143,6 +171,8 @@ public class SociallyDistantGroupedSeatingArrangement
 
                     if (possibleGroups.size() > 0)
                     {
+                        //possibleGroups.sortByGroupSize();
+                        //possibleGroups.sortDescending();;
                         SeatingGroup currentGroup;
                         currentGroup = possibleGroups.getGroups().get(0);
                         //Iterator<SeatingGroup> it2 = possibleGroups.iterator();
@@ -166,6 +196,10 @@ public class SociallyDistantGroupedSeatingArrangement
                 {
                     rowsOccupied.add(currentRow);
                 }
+                if (rowsEmpty.contains(currentRow))
+                {
+                    rowsEmpty.remove(currentRow);
+                }
 
             }
 
@@ -179,11 +213,15 @@ public class SociallyDistantGroupedSeatingArrangement
         //until no more best swaps can be performed. 
         //Swaps are done in-place.
         boolean swap = false;
+        boolean rowSwap = false;
         boolean anySwap = false;
+        int maxSwap = 5;
+        int swapCount = 0;
         SeatingRow currentRow;
         SeatingRow swapRow;
         do
         {
+            rowSwap = false;
             for (int i = 0; i < rowsToSwap.size(); i++)
             {
                 currentRow = rowsToSwap.get(i);
@@ -194,11 +232,13 @@ public class SociallyDistantGroupedSeatingArrangement
                     swap = bestSwap(currentRow, swapRow);
                     if (swap == true)
                     {
+                        rowSwap = true;
                         anySwap = true;
                     }
                 }
             }
-        } while (swap);
+            swapCount ++;
+        } while (rowSwap && swapCount < maxSwap);
         return anySwap;
     }
 
@@ -242,7 +282,7 @@ public class SociallyDistantGroupedSeatingArrangement
 //                            Skip invalid swaps where the
 //                              leftover would be negative
 //                                impossible on either row.
-                    if (leftoverSeatsA + swapDifference > 0 && leftoverSeatsB - swapDifference > 0)
+                    if (leftoverSeatsA + swapDifference >= 0 && leftoverSeatsB - swapDifference >= 0)
                     {
 //            The difference between the two leftovers IF the swap were to take place:
                         currentDifference = Math.abs((leftoverSeatsA + swapDifference) - (leftoverSeatsB - swapDifference));
@@ -266,6 +306,53 @@ public class SociallyDistantGroupedSeatingArrangement
             rowB.seatGroup(bestPair[0]);
 
             return true;
+        }
+        else if (leftoverSeatsA > 0 && groupsToSeat.size()>0)
+        {
+            // check if swapping in an unseated group results in fewer empty seats
+            ArrayList<SeatingGroup> groupsA = rowA.getGroups();
+            SeatingGroup currentGroupA;
+            SeatingGroup currentGroupU;
+            for (Iterator<SeatingGroup> itA = groupsA.iterator(); itA.hasNext();)
+            {
+                currentGroupA = itA.next();
+//            for fa in families_a
+//                    for fb in families_b
+                for (Iterator<SeatingGroup> itU = groupsToSeat.iterator(); itU.hasNext();)
+                {
+                    currentGroupU = itU.next();
+                    swapDifference = currentGroupU.getGroupSize() - currentGroupA.getGroupSize();
+//                            How much the leftover will change
+//                              for pew a if we swap fa and fb
+//                            Skip invalid swaps where the
+//                              leftover would be negative
+//                                impossible on either row.
+                    if (leftoverSeatsA + swapDifference >= 0)
+                    {
+//            The difference between the two leftovers IF the swap were to take place:
+                        currentDifference = Math.abs((leftoverSeatsA + swapDifference));
+//            Compare with best swap, replace if better.
+                        if (currentDifference > maxDifference)
+                        {
+                            maxDifference = currentDifference;
+                            bestPair[0] = currentGroupA;
+                            bestPair[1] = currentGroupU;
+                        }
+                    }
+                }
+            }
+            if (bestPair[0] != null)
+            {
+                rowA.unSeatGroup(bestPair[0]);
+                rowA.seatGroup(bestPair[1]);
+                
+                seatedGroups.add(bestPair[1]);
+                groupsToSeat.remove(bestPair[1]);
+                seatedGroups.remove(bestPair[0]);
+                groupsToSeat.add(bestPair[0]);
+
+                return true;
+            }
         }
         return false;
     }
